@@ -30,7 +30,7 @@ def fill_problem_report(pull_request):
             title=pull_request['pull_request']['title']),
         'description': '{description}'.format(
             description=pull_request['pull_request']['body']),
-        'url': '{url}'.format(url=pull_request['pull_request']['url'])
+        'url': '{url}'.format(url=pull_request['pull_request']['html_url'])
     }
     return problem_report
 
