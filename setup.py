@@ -17,5 +17,6 @@ setup(name='hubzilla',
       install_requires=[
           'Flask==0.10.1',
           'configparser==3.3.0r2',
-          'python-bugzilla==1.1.0'],
+          'python-bugzilla==1.1.0',
+          'requests==2.4.3'],
       )
