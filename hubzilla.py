@@ -1,6 +1,7 @@
 import os
 import bugzilla
 import json
+import requests
 
 import configparser
 from flask import Flask, request
@@ -28,7 +29,8 @@ def fill_problem_report(pull_request):
         'summary': 'GITHUB - IGNORE: {title}'.format(
             title=pull_request['pull_request']['title']),
         'description': '{description}'.format(
-            description=pull_request['pull_request']['body'])
+            description=pull_request['pull_request']['body'],
+        'url': '{url}'.format(url=pull_request['pull_request']['url'])
     }
     return problem_report
 
@@ -39,7 +41,8 @@ def index():
         pull_request = json.loads(request.data)
         problem_report = fill_problem_report(pull_request)
         bgz = bugzilla_connect()
-        bgz.createbug(problem_report)
+        problem_report_id = bgz.createbug(problem_report)
+
     return 'OK'
 
 
