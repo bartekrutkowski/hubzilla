@@ -29,7 +29,7 @@ def fill_problem_report(pull_request):
         'summary': 'GITHUB - IGNORE: {title}'.format(
             title=pull_request['pull_request']['title']),
         'description': '{description}'.format(
-            description=pull_request['pull_request']['body'],
+            description=pull_request['pull_request']['body']),
         'url': '{url}'.format(url=pull_request['pull_request']['url'])
     }
     return problem_report
