@@ -1,5 +1,6 @@
 import os
 import bugzilla
+import io
 import json
 import requests
 
@@ -42,7 +43,14 @@ def index():
         problem_report = fill_problem_report(pull_request)
         bgz = bugzilla_connect()
         problem_report_id = bgz.createbug(problem_report)
-
+        diff_file = io.StringIO(requests.get(
+                                pull_request['pull_request']['diff_url'],
+                                stream=True).text)
+        file_id = bgz.attachfile(idlist=problem_report_id,
+                                 attachfile=diff_file,
+                                 name='pull_request.diff',
+                                 is_patch=True,
+                                 description='Diff file from pull request')
     return 'OK'
 
 
