@@ -47,8 +47,7 @@ def index():
         bgz = bugzilla_connect()
         problem_report_id = bgz.createbug(problem_report)
         diff_file = io.StringIO(requests.get(
-                                pull_request['pull_request']['diff_url'],
-                                stream=True).text)
+                                pull_request['pull_request']['diff_url']).text)
         file_id = bgz.attachfile(idlist=problem_report_id,
                                  attachfile=diff_file,
                                  name='pull_request.diff',
