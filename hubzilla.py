@@ -14,6 +14,8 @@ conf.read(os.environ['HUBZILLA_CONFIG'])
 
 
 def bugzilla_connect():
+    """Connect to Bugzilla instance and return callable object 'bgz'."""
+
     bgz = bugzilla.Bugzilla(user=conf.get('bugzilla', 'user'),
                             password=conf.get('bugzilla', 'password'),
                             url=conf.get('bugzilla', 'url'),
@@ -23,6 +25,7 @@ def bugzilla_connect():
 
 
 def fill_problem_report(pull_request):
+    """Fills problem_report dict from pull_request data sent by GitHub hook."""
     problem_report = {
         'product': 'Ports Tree',
         'component': 'Individual Port(s)',
@@ -49,6 +52,7 @@ def index():
         file_id = bgz.attachfile(idlist=problem_report_id,
                                  attachfile=diff_file,
                                  name='pull_request.diff',
+                                 file_name='pull_request.diff',
                                  is_patch=True,
                                  description='Diff file from pull request')
     return 'OK'
