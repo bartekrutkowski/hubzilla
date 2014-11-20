@@ -45,10 +45,10 @@ def index():
         pull_request = json.loads(request.data)
         problem_report = fill_problem_report(pull_request)
         bgz = bugzilla_connect()
-        problem_report_id = bgz.createbug(problem_report)
+        problem_report = bgz.createbug(problem_report)
         diff_file = io.StringIO(requests.get(
                                 pull_request['pull_request']['diff_url']).text)
-        file_id = bgz.attachfile(idlist=problem_report_id,
+        file_id = bgz.attachfile(idlist=problem_report.id,
                                  attachfile=diff_file,
                                  name='pull_request.diff',
                                  file_name='pull_request.diff',
