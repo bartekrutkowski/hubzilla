@@ -7,3 +7,7 @@ url = https://bugs.freebsd.org/bugzilla/xmlrpc.cgi
 user = some@email.address.com
 password = SomePazzW0rt
 sslverify = False
+
+[github]
+user = some@user.com
+token = some_oauth2_token_generated_by_github
