@@ -59,9 +59,8 @@ def index():
                                  description='Diff file from pull request')
         print file_id
         print '{url}/?access_token={token}'.format(
-                url=pull_request['pull_request']['url'],
-                token=conf.get('github', 'token')),
-            data='{"status": "closed"}')
+            url=pull_request['pull_request']['url'],
+            token=conf.get('github', 'token'))
         close_pull_request = requests.patch(
             '{url}/?access_token={token}'.format(
                 url=pull_request['pull_request']['url'],
