@@ -57,18 +57,20 @@ def index():
                                  file_name='pull_request.diff',
                                  is_patch=True,
                                  description='Diff file from pull request')
-        comment_pull_request = requests.post(
-            '{url}?access_token={token}'.format(
-                url=pull_request['pull_request']['comments_url'],
-                token=conf.get('github', 'token')),
-            data='''{"body": "This repository is a read only mirror of official
+        comment = {"body": """This repository is a read only mirror of official
              FreeBSD SVN repository. Your pull-request has been transferred
              into FreeBSD bug tracker here:
              https://bugs.freebsd.org/bugzilla/show_bug.cgi?
              id={problem_report_id}
              where you can work with the FreeBSD community on it.
 
-             This pull request is closed automatically."}''')
+             This pull request is closed automatically.""".format(
+            problem_report_id=problem_report.id)}
+        comment_pull_request = requests.post(
+            '{url}?access_token={token}'.format(
+                url=pull_request['pull_request']['comments_url'],
+                token=conf.get('github', 'token')),
+            data=json.dumps(comment))
         close_pull_request = requests.patch(
             '{url}?access_token={token}'.format(
                 url=pull_request['pull_request']['url'],
