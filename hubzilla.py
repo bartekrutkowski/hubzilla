@@ -61,7 +61,7 @@ def index():
             '{url}?access_token={token}'.format(
                 url=pull_request['pull_request']['url'],
                 token=conf.get('github', 'token')),
-            data='{"status": "closed"}')
+            data='{"state": "closed"}')
         print close_pull_request
     return 'OK'
 
