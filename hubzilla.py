@@ -57,7 +57,7 @@ def index():
                                  file_name='pull_request.diff',
                                  is_patch=True,
                                  description='Diff file from pull request')
-        comment_pull_request = request.post(
+        comment_pull_request = requests.post(
             '{url}?access_token={token}'.format(
                 url=pull_request['pull_request']['comments_url'],
                 token=conf.get('github', 'token')),
