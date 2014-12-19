@@ -46,12 +46,12 @@ def fill_problem_report(pull_request):
 def verify_request(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        try:
-            github_signature = request.headers.get('X-Hub-Signature')
-        except KeyError, e:
-            print "ERROR: Received request without X-Hub-Signature: {error}".format(error=e)
+        github_signature = request.headers.get('X-Hub-Signature')
+        if github_signature is None:
+            print "ERROR: Received request without X-Hub-Signature!"
             abort(401)
-        print github_signature
+        else:
+            print github_signature
     return decorated_function
 
 
