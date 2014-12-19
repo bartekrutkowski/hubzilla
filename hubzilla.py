@@ -52,6 +52,7 @@ def verify_request(f):
             abort(401)
         else:
             print github_signature
+            return f(*args, **kwargs)
     return decorated_function
 
 
