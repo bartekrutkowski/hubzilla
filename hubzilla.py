@@ -5,7 +5,7 @@ import json
 import requests
 
 import configparser
-from flask import Flask, request
+from flask import abort, Flask, request
 from functools import wraps
 
 app = Flask('__name__')
@@ -50,7 +50,7 @@ def verify_request(f):
             github_signature = request.headers.get('X-Hub-Signature')
         except KeyError, e:
             print "ERROR: Received request without X-Hub-Signature: {error}".format(error=e)
-            return False
+            abort(401)
         print github_signature
     return decorated_function
 
