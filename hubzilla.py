@@ -51,7 +51,11 @@ def verify_request(f):
             print "ERROR: Received request without X-Hub-Signature!"
             abort(401)
         else:
-            print github_signature
+            if 'sha1=' not in github_signature:
+                print "ERROR: Malformed X-Hub-Signature!"
+                abort(401)
+            else:
+                print github_signature
             return f(*args, **kwargs)
     return decorated_function
 
@@ -84,11 +88,11 @@ def index():
             url=pull_request['pull_request']['comments_url'],
             token=conf.get('github', 'token')),
         data=json.dumps(comment))
-    close_pull_request = requests.patch(
-        '{url}?access_token={token}'.format(
-            url=pull_request['pull_request']['url'],
-            token=conf.get('github', 'token')),
-        data='{"state": "closed"}')
+    # close_pull_request = requests.patch(
+    #     '{url}?access_token={token}'.format(
+    #         url=pull_request['pull_request']['url'],
+    #         token=conf.get('github', 'token')),
+    #     data='{"state": "closed"}')
     print close_pull_request
 
 
