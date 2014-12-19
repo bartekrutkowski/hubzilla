@@ -55,8 +55,8 @@ def verify_request(f):
     return decorated_function
 
 
-@verify_request
 @app.route('/pull-request', methods=['POST'])
+@verify_request
 def index():
     pull_request = json.loads(request.data)
     problem_report = fill_problem_report(pull_request)
