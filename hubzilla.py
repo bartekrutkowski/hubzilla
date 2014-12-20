@@ -58,8 +58,7 @@ def verify_request(f):
             print "ERROR: Request malformed X-Hub-Signature!"
             abort(401)
         else:
-            gh_secret = conf.get('github', 'secret')
-            print gh_secret
+            gh_secret = str(conf.get('github', 'secret'))
             req_data = request.get_data()
             req_sig = "sha1={digest}".format(
                 digest=new(gh_secret, req_data, sha1).hexdigest())
