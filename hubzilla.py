@@ -59,9 +59,11 @@ def verify_request(f):
             abort(401)
         else:
             gh_secret = conf.get('github', 'secret')
+            print gh_secret
             req_data = request.get_data()
             req_sig = "sha1={digest}".format(
                 digest=new(gh_secret, req_data, sha1).hexdigest())
+            print req_sig
             if req_sig != gh_sig:
                 print "ERROR: X-Hub-Signature mismatch!"
                 abort(401)
