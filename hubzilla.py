@@ -7,6 +7,9 @@ import requests
 import configparser
 from flask import abort, Flask, request
 from functools import wraps
+from hmac import new
+from hashlib import sha1
+
 
 app = Flask('__name__')
 app.secret_key = os.urandom(128)
@@ -46,17 +49,24 @@ def fill_problem_report(pull_request):
 def verify_request(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        github_signature = request.headers.get('X-Hub-Signature')
-        if github_signature is None:
-            print "ERROR: Received request without X-Hub-Signature!"
+        try:
+            gh_sig = request.headers.get('X-Hub-Signature').split('=')
+        except AttributeError, e:
+            print "ERROR: Request missing X-Hub-Signature! {e}".format(e=e)
+            abort(401)
+        if gh_sig[0] != 'sha1' or len(gh_sig[1]) is not 40:
+            print "ERROR: Request malformed X-Hub-Signature!"
             abort(401)
         else:
-            if 'sha1=' not in github_signature:
-                print "ERROR: Malformed X-Hub-Signature!"
+            gh_secret = conf.get('github', 'secret')
+            req_data = request.get_data()
+            req_sig = "sha1={digest}".format(
+                digest=new(gh_secret, req_data, sha1).hexdigest())
+            if req_sig != gh_sig:
+                print "ERROR: X-Hub-Signature mismatch!"
                 abort(401)
             else:
-                print github_signature
-            return f(*args, **kwargs)
+                return f(*args, **kwargs)
     return decorated_function
 
 
@@ -64,7 +74,7 @@ def verify_request(f):
 @verify_request
 def index():
     pull_request = json.loads(request.data)
-    if pull_request['action'] is 'opened' and pull_request['pull_request']['state'] is ['open']:
+    if pull_request['action'] == 'opened' and pull_request['pull_request']['state'] == 'open':
         problem_report = fill_problem_report(pull_request)
         bgz = bugzilla_connect()
         problem_report = bgz.createbug(problem_report)
@@ -81,7 +91,7 @@ def index():
             "transferred into FreeBSD bug tracker here: "
             "https://bugs.freebsd.org/bugzilla/show_bug.cgi?"
             "id={problem_report_id} where you can work with the FreeBSD "
-            "community on it.\n"
+            "community on resolving your Problem Report.\n\n"
             "This pull request is closed automatically.".format(
                 problem_report_id=problem_report.id)}
         comment_pull_request = requests.post(

@@ -11,3 +11,4 @@ sslverify = False
 [github]
 user = some@user.com
 token = some_oauth2_token_generated_by_github
+secret = github_pull_request_secret_key
