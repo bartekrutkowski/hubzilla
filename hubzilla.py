@@ -63,6 +63,7 @@ def verify_request(f):
             req_sig = "sha1={digest}".format(
                 digest=new(gh_secret, req_data, sha1).hexdigest())
             print req_sig
+            print gh_sig
             if req_sig != gh_sig:
                 print "ERROR: X-Hub-Signature mismatch!"
                 abort(401)
