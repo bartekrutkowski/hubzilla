@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
+
 import os
-import bugzilla
 import io
 import json
 import requests
@@ -17,6 +18,15 @@ conf = configparser.RawConfigParser()
 conf.read(os.environ['HUBZILLA_CONFIG'])
 
 
+def to_unicode(text, encoding='utf-8'):
+    """Convert the text to unicode if it is not unicode already."""
+
+    if isinstance(text, basestring) and not isinstance(text, unicode):
+        return text.decode(encoding)
+    else:
+        return text
+
+
 def bugzilla_connect():
     """Connect to Bugzilla instance and return callable object 'bgz'."""
 
@@ -30,6 +40,7 @@ def bugzilla_connect():
 
 def fill_problem_report(pull_request):
     """Fills problem_report dict from pull_request data sent by GitHub hook."""
+
     problem_report = {
         'product': 'Ports Tree',
         'component': 'Individual Port(s)',
@@ -46,7 +57,7 @@ def fill_problem_report(pull_request):
     return problem_report
 
 
-def verify_request(f):
+def auth_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
@@ -70,7 +81,7 @@ def verify_request(f):
 
 
 @app.route('/pull-request', methods=['POST'])
-@verify_request
+@auth_required
 def index():
     pull_request = json.loads(request.data)
     if pull_request['action'] == 'opened' and pull_request['pull_request']['state'] == 'open':
@@ -86,13 +97,13 @@ def index():
                                  is_patch=True,
                                  description='Diff file from pull request')
         comment = {"body": "This repository is a read only mirror of "
-            "official FreeBSD SVN repository. Your pull-request has been "
-            "transferred into FreeBSD bug tracker here: "
-            "https://bugs.freebsd.org/bugzilla/show_bug.cgi?"
-            "id={problem_report_id} where you can work with the FreeBSD "
-            "community on resolving your Problem Report.\n\n"
-            "This pull request is closed automatically.".format(
-                problem_report_id=problem_report.id)}
+                   "official FreeBSD SVN repository. Your pull-request has "
+                   "been transferred into FreeBSD bug tracker here: "
+                   "https://bugs.freebsd.org/bugzilla/show_bug.cgi?"
+                   "id={problem_report_id} where you can work with the "
+                   "FreeBSD community on resolving your Problem Report.\n\n"
+                   "This pull request is closed automatically.".format(
+                       problem_report_id=problem_report.id)}
         comment_pull_request = requests.post(
             '{url}?access_token={token}'.format(
                 url=pull_request['pull_request']['comments_url'],

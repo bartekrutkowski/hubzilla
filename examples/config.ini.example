@@ -1,14 +1,12 @@
 [app]
 listen_addr = 0.0.0.0
-listen_port = 8888
+listen_port = 9999
 
 [bugzilla]
-url = https://bugs.freebsd.org/bugzilla/xmlrpc.cgi
-user = some@email.address.com
-password = SomePazzW0rt
-sslverify = False
+url = https://example.com/bugzilla/
+api_key = SomeBugzillaApiKey
 
 [github]
-user = some@user.com
-token = some_oauth2_token_generated_by_github
-secret = github_pull_request_secret_key
+user = someuser@example.com
+token = SomeGitHubToken
+secret = SomeGitHubWebHookSecret
