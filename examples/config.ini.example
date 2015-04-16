@@ -10,3 +10,10 @@ api_key = SomeBugzillaApiKey
 user = someuser@example.com
 token = SomeGitHubToken
 secret = SomeGitHubWebHookSecret
+comment = "This repository is a read-only mirror of "
+           "official FreeBSD SVN repository. Your pull-request has "
+           "been transferred into FreeBSD bug tracker here: "
+           "https://bugs.freebsd.org/bugzilla/show_bug.cgi?"
+           "id={pr_id} where you can work with the FreeBSD community "
+           "on resolving your Problem Report.\n\n"
+           "This pull request is closed automatically."

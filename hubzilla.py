@@ -1,18 +1,28 @@
 # -*- coding: utf-8 -*-
 
+import configparser
 import os
 import json
+import logging
 import requests
 
-import configparser
+from logging.handlers import SysLogHandler
 from flask import Flask, abort, make_response, request
 from functools import wraps
 from hmac import new
 from hashlib import sha1
 
 
-app = Flask('__name__')
+app = Flask(__name__)
 app.secret_key = os.urandom(128)
+
+syslog = SysLogHandler(address='/dev/log')
+syslog.setLevel(logging.INFO)
+syslog.setFormatter(logging.Formatter("hubzilla[%(process)d]: %(levelname)s - %(message)s "
+                    "[in %(pathname)s:%(lineno)d]"))
+app.logger.addHandler(syslog)
+log = app.logger
+
 conf = configparser.RawConfigParser()
 conf.read(os.environ['HUBZILLA_CONFIG'])
 
@@ -58,23 +68,23 @@ def make_patch(pr_id, data):
     return patch
 
 
-def auth_required(f):
+def authorize(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         try:
             gh_sig = request.headers.get('X-Hub-Signature').split('=')
-        except AttributeError, e:
-            print "ERROR: Request missing X-Hub-Signature! {e}".format(e=e)
+        except AttributeError as e:
+            log.error("Missing X-Hub-Signature: {e}".format(e=e))
             abort(401)
         if gh_sig[0] != 'sha1' or len(gh_sig[1]) is not 40:
-            print "ERROR: Request malformed X-Hub-Signature!"
+            log.error("Malformed X-Hub-Signature")
             abort(401)
         else:
             gh_secret = str(conf.get('github', 'secret'))
             req_data = request.get_data()
             req_sig = new(gh_secret, req_data, sha1).hexdigest()
             if req_sig != gh_sig[1]:
-                print "ERROR: X-Hub-Signature mismatch!"
+                log.error("X-Hub-Signature mismatch")
                 abort(401)
             else:
                 return f(*args, **kwargs)
@@ -82,53 +92,49 @@ def auth_required(f):
 
 
 @app.route('/pull-request', methods=['POST'])
-@auth_required
+@authorize
 def index():
     try:
         pull_req = json.loads(request.data)
     except (ValueError, TypeError):
-        print "ERROR: pull-request data was not JSON."
+        log.error("No JSON in pull request data")
         abort(500)
-    if pull_req['action'] == 'opened' and pull_req['pull_request']['state'] == 'open':
-        problem_report = make_bug(pull_req)
-        post_url = '{url}/bug'.format(url=conf.get('bugzilla', 'url'))
-        post_params = {"api_key": "{key}".format(key=conf['bugzilla']['api_key'])}
-        try:
-            pr_id = requests.post(post_url, params=post_params, json=problem_report).json()['id']
-        except Exception as error:
-            print "ERROR: posting PR failed."
-            print error
-            abort(500)
-
-        post_url = '{url}/bug/{pr_id}/attachment'.format(
-                                                    url=conf.get('bugzilla', 'url'),
-                                                    pr_id=pr_id)
-        post_params = {"api_key": conf['bugzilla']['api_key']}
-        post_data = make_patch(pr_id, requests.get(pull_req['pull_request']['diff_url']).text)
-        file_id = requests.post(post_url, params=post_params, json=post_data)
-
-        comment = {"body": "This repository is a read only mirror of "
-                   "official FreeBSD SVN repository. Your pull-request has "
-                   "been transferred into FreeBSD bug tracker here: "
-                   "https://bugs.freebsd.org/bugzilla/show_bug.cgi?"
-                   "id={pr_id} where you can work with the FreeBSD community "
-                   "on resolving your Problem Report.\n\n"
-                   "This pull request is closed automatically.".format(pr_id=pr_id)}
-
-        comment_pull_request = requests.post(
-            '{url}?access_token={token}'.format(
-                url=pull_req['pull_request']['comments_url'],
-                token=conf.get('github', 'token')),
-            data=json.dumps(comment))
-        close_pull_request = requests.patch(
-            '{url}?access_token={token}'.format(
-                url=pull_req['pull_request']['url'],
-                token=conf.get('github', 'token')),
-            data='{"state": "closed"}')
-        return make_response('OK', 200)
-    else:
-        print "ERROR: the pull-request is already closed."
+    if not (pull_req['action'] == 'opened' and
+            pull_req['pull_request']['state'] == 'open'):
+        log.error("The pull-request is already closed")
         abort(500)
+
+    problem_report = make_bug(pull_req)
+    url = '{url}/bug'.format(url=conf.get('bugzilla', 'url'))
+    params = {"api_key": "{key}".format(key=conf['bugzilla']['api_key'])}
+    try:
+        pr_id = requests.post(url, params=params, json=problem_report).json()['id']
+    except Exception as e:
+        log.error("Posting PR failed: {e}".format(e=e))
+        abort(500)
+
+    url = '{url}/bug/{pr_id}/attachment'.format(
+        url=conf.get('bugzilla', 'url'),
+        pr_id=pr_id)
+    params = {"api_key": conf['bugzilla']['api_key']}
+    data = make_patch(
+        pr_id,
+        requests.get(pull_req['pull_request']['diff_url']).text)
+    file_id = requests.post(url, params=params, json=data)
+
+    comment = {"body": conf.get('github', 'comment').format(pr_id=pr_id)}
+
+    comment_pull_request = requests.post(
+        '{url}?access_token={token}'.format(
+            url=pull_req['pull_request']['comments_url'],
+            token=conf.get('github', 'token')),
+        data=json.dumps(comment))
+    close_pull_request = requests.patch(
+        '{url}?access_token={token}'.format(
+            url=pull_req['pull_request']['url'],
+            token=conf.get('github', 'token')),
+        data='{"state": "closed"}')
+    return make_response('OK', 200)
 
 
 if __name__ == '__main__':
