@@ -18,8 +18,9 @@ app.secret_key = os.urandom(128)
 
 syslog = SysLogHandler(address='/dev/log')
 syslog.setLevel(logging.INFO)
-syslog.setFormatter(logging.Formatter("hubzilla[%(process)d]: %(levelname)s - %(message)s "
-                    "[in %(pathname)s:%(lineno)d]"))
+syslog.setFormatter(logging.Formatter(
+                    "hubzilla[%(process)d]: %(levelname)s - "
+                    "%(message)s [in %(pathname)s:%(lineno)d]"))
 app.logger.addHandler(syslog)
 log = app.logger
 
@@ -36,36 +37,79 @@ def to_unicode(text, encoding='utf-8'):
         return text
 
 
-def make_bug(pull_req):
-    """Makes problem_report dict from pull_request data sent by GitHub hook."""
-
-    bug = {
+def build_problem_report(req_data):
+    """Returns problem report dict from req_data sent by GitHub hook."""
+    return {
         "product": "Ports & Packages",
         "component": "Individual Port(s)",
         "version": "Latest",
         "summary": "GitHub Pull Request #{number}: {title}".format(
-            number=pull_req['pull_request']['number'],
-            title=pull_req['pull_request']['title']),
+            number=req_data['pull_request']['number'],
+            title=req_data['pull_request']['title']),
         "description": "{description}\nBy: {name}({name_url})".format(
-            description=pull_req['pull_request']['body'],
-            name=pull_req['pull_request']['user']['login'],
-            name_url=pull_req['pull_request']['user']['url']),
-        "url": "{url}".format(url=pull_req['pull_request']['html_url'])
+            description=req_data['pull_request']['body'],
+            name=req_data['pull_request']['user']['login'],
+            name_url=req_data['pull_request']['user']['url']),
+        "url": "{url}".format(url=req_data['pull_request']['html_url'])
     }
-    return bug
 
 
 def make_patch(pr_id, data):
     """Makes patch dictionary."""
-
-    patch = {
+    return {
         "ids": [pr_id],
         "is_patch": "true",
         "summary": "Patch from GitHub Pull Request",
         "data": data,
         "file_name": "pull_request.diff"
     }
-    return patch
+
+
+def post_comment(req_data, problem_report_id):
+    """Posts comment to GitHub pull request."""
+    comment = {"body": conf.get('github', 'comment').format(
+                                                    pr_id=problem_report_id)}
+    requests.post(
+        '{url}?access_token={token}'.format(
+            url=req_data['pull_request']['comments_url'],
+            token=conf.get('github', 'token')),
+        data=json.dumps(comment))
+    return
+
+
+def close_pull_request(req_data):
+    """Closes GitHub pull request."""
+    requests.patch(
+        '{url}?access_token={token}'.format(
+            url=req_data['pull_request']['url'],
+            token=conf.get('github', 'token')),
+        data='{"state": "closed"}')
+    return
+
+
+def upload_patch(req_data, problem_report_id):
+    """Uploads diff from GitHub pull request into problem report."""
+    url = '{url}/bug/{id}/attachment'.format(
+        url=conf.get('bugzilla', 'url'),
+        id=problem_report_id)
+    params = {"api_key": conf['bugzilla']['api_key']}
+    data = make_patch(
+        problem_report_id,
+        requests.get(req_data['pull_request']['diff_url']).text)
+    requests.post(url, params=params, json=data)
+    return
+
+
+def open_problem_report(problem_report):
+    """Creates problem report in Bugzilla and returns its id."""
+    url = '{url}/bug'.format(url=conf.get('bugzilla', 'url'))
+    params = {"api_key": "{key}".format(key=conf['bugzilla']['api_key'])}
+    try:
+        result = requests.post(url, params=params, json=problem_report)
+    except Exception as e:
+        log.error("Posting PR failed: {e}".format(e=e))
+        abort(500)
+    return result.json()['id']
 
 
 def authorize(f):
@@ -95,45 +139,21 @@ def authorize(f):
 @authorize
 def index():
     try:
-        pull_req = json.loads(request.data)
+        request_data = json.loads(request.data)
     except (ValueError, TypeError):
         log.error("No JSON in pull request data")
         abort(500)
-    if not (pull_req['action'] == 'opened' and
-            pull_req['pull_request']['state'] == 'open'):
+    if not (request_data['action'] == 'opened' and
+            request_data['pull_request']['state'] == 'open'):
         log.error("The pull-request is already closed")
         abort(500)
 
-    problem_report = make_bug(pull_req)
-    url = '{url}/bug'.format(url=conf.get('bugzilla', 'url'))
-    params = {"api_key": "{key}".format(key=conf['bugzilla']['api_key'])}
-    try:
-        pr_id = requests.post(url, params=params, json=problem_report).json()['id']
-    except Exception as e:
-        log.error("Posting PR failed: {e}".format(e=e))
-        abort(500)
+    problem_report = build_problem_report(request_data)
+    problem_report_id = open_problem_report(problem_report)
+    upload_patch(request_data, problem_report_id)
+    post_comment(request_data, problem_report_id)
+    close_pull_request(request_data)
 
-    url = '{url}/bug/{pr_id}/attachment'.format(
-        url=conf.get('bugzilla', 'url'),
-        pr_id=pr_id)
-    params = {"api_key": conf['bugzilla']['api_key']}
-    data = make_patch(
-        pr_id,
-        requests.get(pull_req['pull_request']['diff_url']).text)
-    file_id = requests.post(url, params=params, json=data)
-
-    comment = {"body": conf.get('github', 'comment').format(pr_id=pr_id)}
-
-    comment_pull_request = requests.post(
-        '{url}?access_token={token}'.format(
-            url=pull_req['pull_request']['comments_url'],
-            token=conf.get('github', 'token')),
-        data=json.dumps(comment))
-    close_pull_request = requests.patch(
-        '{url}?access_token={token}'.format(
-            url=pull_req['pull_request']['url'],
-            token=conf.get('github', 'token')),
-        data='{"state": "closed"}')
     return make_response('OK', 200)
 
 
